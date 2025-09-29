@@ -1,12 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
+import {auth} from "@/lib/better-auth/auth";
 import {headers} from "next/headers";
 import {redirect} from "next/navigation";
 
 const Layout = async ({ children }: { children : React.ReactNode }) => {
+    const session = await auth.api.getSession({ headers: await headers() })
+
+    if(session?.user) redirect('/')
 
     return (
-        <main className="auth-layout font-DMregular">
+        <main className="auth-layout">
             <section className="auth-left-section scrollbar-hide-default">
                 <Link href="/" className="auth-logo">
                     <Image src="/assets/icons/logo.svg" alt="Signalist logo" width={140} height={32} className='h-8 w-auto' />
@@ -22,8 +26,8 @@ const Layout = async ({ children }: { children : React.ReactNode }) => {
                     </blockquote>
                     <div className="flex items-center justify-between">
                         <div>
-                            <cite className="auth-testimonial-author">- Harry Lewis</cite>
-                            <p className="max-md:text-xs text-gray-500">Day Trader</p>
+                            <cite className="auth-testimonial-author">- Ethan R.</cite>
+                            <p className="max-md:text-xs text-gray-500">Retail Investor</p>
                         </div>
                         <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((star) => (
