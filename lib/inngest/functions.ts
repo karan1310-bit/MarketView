@@ -1,10 +1,11 @@
 import {inngest} from "@/lib/inngest/client";
 import {NEWS_SUMMARY_EMAIL_PROMPT, PERSONALIZED_WELCOME_EMAIL_PROMPT} from "./propmts";
-import {sendNewsSummaryEmail, sendWelcomeEmail} from "@/lib/nodemailer";
+import {sendNewsSummaryEmail, sendPriceAlertEmail, sendWelcomeEmail} from "@/lib/nodemailer";
 import {getAllUsersForNewsEmail} from "@/lib/actions/user.actions";
 import { getWatchlistSymbolsByEmail } from "@/lib/actions/watchlist.actions";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { getFormattedTodayDate } from "@/lib/utils";
+import { connectToDatabase } from "@/database/mongoose";
 
 
 export const sendSignUpEmail = inngest.createFunction(
@@ -118,3 +119,84 @@ export const sendDailyNewsSummary = inngest.createFunction(
         return { success: true, message: 'Daily news summary emails sent successfully' }
     }
 )
+
+// Send price alert email when threshold is triggered
+export const sendPriceAlert = inngest.createFunction(
+  { id: 'send-price-alert' },
+  { event: 'alert/price.triggered' },
+  async ({ event, step }) => {
+    const {
+      symbol,
+      userEmail,
+      company,
+      alertType,
+      alertName,
+      thresholdValue,
+      currentValue,
+    } = event.data;
+
+    // Step 1: Format price values
+    const priceData = await step.run('format-price-data', async () => {
+      try {
+        const formattedPrice = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(currentValue);
+
+        const formattedThreshold = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(thresholdValue);
+
+        return { formattedPrice, formattedThreshold };
+      } catch (error) {
+        console.error('Error formatting price data:', error);
+        return {
+          formattedPrice: `$${currentValue.toFixed(2)}`,
+          formattedThreshold: `$${thresholdValue.toFixed(2)}`,
+        };
+      }
+    });
+
+    // Step 2: Send price alert email
+    await step.run('send-alert-email', async () => {
+      const { formattedPrice, formattedThreshold } = priceData;
+      
+      if (!['upper', 'lower'].includes(alertType)) {
+        throw new Error(`Unsupported alert type: ${alertType}`);
+      }
+      
+      return await sendPriceAlertEmail({
+        email: userEmail,
+        symbol,
+        company,
+        alertType: alertType as 'upper' | 'lower',
+        alertName,
+        currentPrice: formattedPrice,
+        thresholdPrice: formattedThreshold,
+      });
+    });
+
+    // Step 3: Update lastSent property in MongoDB
+    await step.run('update-alert-last-sent', async () => {
+      const mongoose = await connectToDatabase();
+      const db = mongoose.connection.db;
+      if (!db) throw new Error('Database connection failed');
+
+      await db.collection("alerts").updateOne(
+        { 
+          userEmail, 
+          symbol, 
+          alertName,
+          alertType 
+        },
+        { $set: { lastSent: new Date() } }
+      );
+    });
+
+    return {
+      success: true,
+      message: `Price alert email sent for ${symbol}`,
+    };
+  }
+);

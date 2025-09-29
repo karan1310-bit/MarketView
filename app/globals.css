@@ -254,10 +254,10 @@
     @apply w-full grid-cols-1 gap-6 xl:grid-cols-3 space-y-6 sm:space-y-8;
   }
   .watchlist-btn {
-    @apply bg-yellow-500 text-base hover:bg-yellow-500 text-gray-900 w-full rounded h-11 font-semibold cursor-pointer;
+    @apply bg-yellow-500 text-sm hover:bg-yellow-500 text-gray-900 px-2 py-2 rounded h-11 min-w-fit font-semibold cursor-pointer;
   }
   .watchlist-remove {
-    @apply bg-red-500! hover:bg-red-500! text-gray-900!
+    @apply bg-red-500! hover:bg-red-500! text-gray-900! min-w-fit px-2 py-2 flex items-center
   }
   .watchlist-empty-container {
     @apply container gap-8 flex-col items-center md:mt-10 p-6 text-center;
